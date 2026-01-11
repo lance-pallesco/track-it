@@ -5,8 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -24,6 +23,7 @@ model User {
 
   accounts        Account[]
   transactions    Transaction[]
+  sessions        Session[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -41,6 +41,18 @@ model Account {
   transactions    Transaction[]
 
   createdAt       DateTime @default(now())
+}
+
+model Session {
+  id            String   @id @default(uuid())
+  userId        String
+  sessionToken  String @unique
+  expires       DateTime
+
+  user          User    @relation(fields: [userId], references: [id])
+
+  createdAt     DateTime @default(now())
+  @@index([userId])
 }
 
 model Transaction {
