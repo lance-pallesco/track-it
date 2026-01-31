@@ -1,31 +1,39 @@
+/**
+ * Register API - validates input, checks duplicate email, creates user.
+ */
+
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcrypt";
+import { validateRegister } from "@/lib/validations/auth";
+import { registerUser } from "@/lib/services/auth.service";
 
 export async function POST(request: Request) {
-    const { firstName, lastName, email, password } = await request.json();
-    if (!firstName || !lastName || !email || !password) {
-        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
+  }
 
-    if (password.length < 8) {
-        return NextResponse.json({ error: "Password must be at least 8 characters long" }, { status: 400 });
-    }
-    try {
-        const hashedPassword = await bcrypt.hash(password, 12);
-        const newUser = await prisma.user.create({
-            data: {
-                firstName,
-                lastName,
-                email,
-                password: hashedPassword,
-            },
-        });
-        return NextResponse.json({ message: "User registered successfully!" }, { status: 201 });
-    } catch (error : any) {
-        if (error.code === 'P2002') {
-            return NextResponse.json({ error: "Email already in use!" }, { status: 409 });
-        }
-        return NextResponse.json({ error: "Internal server error!" }, { status: 500 });
-    }
+  const validation = validateRegister(body);
+  if (!validation.success) {
+    return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+
+  const { email, password, firstName, lastName } = validation.data!;
+  const result = await registerUser(email, password, firstName, lastName);
+
+  if (!result.success) {
+    const status =
+      result.code === "EMAIL_EXISTS" ? 409 :
+      result.code === "VALIDATION_ERROR" ? 400 : 500;
+    return NextResponse.json({ error: result.message }, { status });
+  }
+
+  return NextResponse.json(
+    { message: "User registered successfully" },
+    { status: 201 }
+  );
 }

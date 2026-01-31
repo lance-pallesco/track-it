@@ -1,4 +1,5 @@
 import { GalleryVerticalEnd } from "lucide-react"
+import { Suspense } from "react"
 
 import { LoginForm } from "@/components/login-form"
 import Link from "next/link"
@@ -12,12 +13,14 @@ export default function LoginPage() {
             <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
               <GalleryVerticalEnd className="size-4" />
             </div>
-            Acme Inc.
+            Track IT
           </Link>
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs">
-            <LoginForm />
+            <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
+              <LoginForm />
+            </Suspense>
           </div>
         </div>
       </div>

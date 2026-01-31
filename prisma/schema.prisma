@@ -1,8 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Track IT - Personal Finance Tracker
+// Prisma schema designed for scalability (personal → SaaS)
 
 generator client {
   provider = "prisma-client-js"
@@ -12,61 +9,164 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id              String  @id @default(uuid())
-  firstName       String
-  lastName        String
-  email           String  @unique
-  password        String
-  currency        String @default("PHP")
-  emailVerified   DateTime?
+// --- Enums ---
 
-  accounts        Account[]
-  transactions    Transaction[]
-  sessions        Session[]
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+enum AccountType {
+  CASH
+  BANK
+  E_WALLET
+  CREDIT_CARD
+  LOAN
+  INVESTMENT
 }
 
-model Account {
-  id              String @id @default(uuid())
-  userId          String
-  name            String
-  type            String
-  initialAmount   Decimal
-  currency        String
-  
-  user            User @relation(fields: [userId], references: [id])
-  transactions    Transaction[]
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
 
-  createdAt       DateTime @default(now())
+// --- Models ---
+
+model User {
+  id            String    @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String    @unique
+  password      String
+  currency      String    @default("PHP")
+  emailVerified DateTime?
+  image         String?
+
+  accounts     Account[]
+  transactions Transaction[]
+  sessions     Session[]
+  categories   Category[]
+  budgets      Budget[]
+  goals        Goal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
 }
 
 model Session {
-  id            String   @id @default(uuid())
+  id           String   @id @default(uuid())
+  userId       String
+  sessionToken String   @unique
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([sessionToken])
+}
+
+model Account {
+  id            String      @id @default(uuid())
   userId        String
-  sessionToken  String @unique
-  expires       DateTime
+  name          String
+  type          AccountType
+  initialAmount Decimal     @default(0)
+  currency      String      @default("PHP")
+  color         String?     // Optional accent for UI
 
-  user          User    @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime @default(now())
+  // Transactions where this account is the primary account
+  transactionsFrom Transaction[] @relation("AccountFrom")
+  // Transactions where this account is the transfer destination
+  transactionsTo   Transaction[] @relation("AccountTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
 }
 
-model Transaction {
+model Category {
   id        String   @id @default(uuid())
   userId    String
-  accountId String
-  amount    Decimal
-  type      String
-  category  String
-  note      String?
-  date      DateTime
+  name      String
+  icon      String?
+  type      TransactionType // INCOME or EXPENSE (transfers don't use categories typically)
+  parentId  String?
+  isSystem  Boolean  @default(false) // System categories vs user-created
 
-  user      User    @relation(fields: [userId], references: [id])
-  account   Account @relation(fields: [accountId], references: [id])
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent     Category?    @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children   Category[]   @relation("CategoryHierarchy")
+  transactions Transaction[]
+
+  budgets Budget[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name, type])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model Transaction {
+  id            String          @id @default(uuid())
+  userId        String
+  accountId     String          // Primary account (source for expense/transfer, destination for income)
+  toAccountId   String?         // For TRANSFER: destination account
+  amount        Decimal         // Always positive; direction implied by type
+  type          TransactionType
+  categoryId    String?         // Null for transfers
+  note          String?
+  date          DateTime
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account   Account @relation("AccountFrom", fields: [accountId], references: [id], onDelete: Restrict)
+  toAccount Account? @relation("AccountTo", fields: [toAccountId], references: [id], onDelete: Restrict)
+  category  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([toAccountId])
+  @@index([date])
+  @@index([userId, date])
+}
+
+model Budget {
+  id          String   @id @default(uuid())
+  userId      String
+  categoryId  String
+  amount      Decimal  // Monthly limit
+  month       DateTime // First day of budget month
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, categoryId, month])
+  @@index([userId])
+}
+
+model Goal {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String
+  targetAmount  Decimal
+  currentAmount Decimal  @default(0)
+  currency      String   @default("PHP")
+  deadline      DateTime?
+  isAchieved    Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
