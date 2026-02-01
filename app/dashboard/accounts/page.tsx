@@ -1,12 +1,11 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { getAuthSession } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { AccountsPageClient } from "./accounts-client"
 
-export default function AccountsPage() {
+export default async function AccountsPage() {
+  const session = await getAuthSession()
+  if (!session) redirect("/login")
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,19 +14,7 @@ export default function AccountsPage() {
           Manage your bank accounts, cash, e-wallets, and more
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming soon</CardTitle>
-          <CardDescription>
-            Add, edit, and manage your financial accounts
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Account management will be available in a future update.
-          </p>
-        </CardContent>
-      </Card>
+      <AccountsPageClient currency={session.user.currency ?? "PHP"} />
     </div>
   )
 }

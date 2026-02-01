@@ -26,6 +26,17 @@ enum TransactionType {
   TRANSFER
 }
 
+enum AccountStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum GoalStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
 // --- Models ---
 
 model User {
@@ -66,13 +77,14 @@ model Session {
 }
 
 model Account {
-  id            String      @id @default(uuid())
+  id            String        @id @default(uuid())
   userId        String
   name          String
   type          AccountType
-  initialAmount Decimal     @default(0)
-  currency      String      @default("PHP")
-  color         String?     // Optional accent for UI
+  initialAmount Decimal       @default(0)
+  currency      String        @default("PHP")
+  color         String?       // Optional accent for UI
+  status        AccountStatus @default(ACTIVE)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -80,11 +92,13 @@ model Account {
   transactionsFrom Transaction[] @relation("AccountFrom")
   // Transactions where this account is the transfer destination
   transactionsTo   Transaction[] @relation("AccountTo")
+  goals            Goal[]        @relation("GoalLinkedAccount")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([status])
 }
 
 model Category {
@@ -94,7 +108,8 @@ model Category {
   icon      String?
   type      TransactionType // INCOME or EXPENSE (transfers don't use categories typically)
   parentId  String?
-  isSystem  Boolean  @default(false) // System categories vs user-created
+  isSystem  Boolean  @default(false)
+  isArchived Boolean @default(false) // Archived categories excluded from budgets
 
   user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent     Category?    @relation("CategoryHierarchy", fields: [parentId], references: [id])
@@ -109,18 +124,20 @@ model Category {
   @@unique([userId, name, type])
   @@index([userId])
   @@index([parentId])
+  @@index([isArchived])
 }
 
 model Transaction {
-  id            String          @id @default(uuid())
-  userId        String
-  accountId     String          // Primary account (source for expense/transfer, destination for income)
-  toAccountId   String?         // For TRANSFER: destination account
-  amount        Decimal         // Always positive; direction implied by type
-  type          TransactionType
-  categoryId    String?         // Null for transfers
-  note          String?
-  date          DateTime
+  id              String          @id @default(uuid())
+  userId          String
+  accountId       String          // Primary account (source for expense/transfer, destination for income)
+  toAccountId     String?         // For TRANSFER: destination account
+  amount          Decimal         // Always positive; direction implied by type
+  type            TransactionType
+  categoryId      String?         // Null for transfers
+  note            String?
+  date            DateTime
+  receiptMetadata String?         // Optional receipt reference (e.g. filename or storage key)
 
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   account   Account @relation("AccountFrom", fields: [accountId], references: [id], onDelete: Restrict)
@@ -154,19 +171,22 @@ model Budget {
 }
 
 model Goal {
-  id            String   @id @default(uuid())
-  userId        String
-  name          String
-  targetAmount  Decimal
-  currentAmount Decimal  @default(0)
-  currency      String   @default("PHP")
-  deadline      DateTime?
-  isAchieved    Boolean  @default(false)
+  id              String    @id @default(uuid())
+  userId          String
+  name            String
+  targetAmount    Decimal
+  currentAmount   Decimal   @default(0)
+  currency        String    @default("PHP")
+  deadline        DateTime?
+  status          GoalStatus @default(ACTIVE)
+  linkedAccountId String?   // Optional: progress can sync from account balance
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedAccount Account? @relation("GoalLinkedAccount", fields: [linkedAccountId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([status])
 }

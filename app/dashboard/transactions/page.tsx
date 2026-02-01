@@ -1,12 +1,11 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { getAuthSession } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { TransactionsPageClient } from "./transactions-client"
 
-export default function TransactionsPage() {
+export default async function TransactionsPage() {
+  const session = await getAuthSession()
+  if (!session) redirect("/login")
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,19 +14,7 @@ export default function TransactionsPage() {
           View and manage your income, expenses, and transfers
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming soon</CardTitle>
-          <CardDescription>
-            Full transaction list with filters and add transaction
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Transaction management will be available in a future update.
-          </p>
-        </CardContent>
-      </Card>
+      <TransactionsPageClient currency={session.user.currency ?? "PHP"} />
     </div>
   )
 }

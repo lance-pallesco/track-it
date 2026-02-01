@@ -1,12 +1,11 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { getAuthSession } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { BudgetsPageClient } from "./budgets-client"
 
-export default function BudgetsPage() {
+export default async function BudgetsPage() {
+  const session = await getAuthSession()
+  if (!session) redirect("/login")
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,19 +14,7 @@ export default function BudgetsPage() {
           Set spending limits and track your budget
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming soon</CardTitle>
-          <CardDescription>
-            Create and manage monthly budgets by category
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Budget tracking will be available in a future update.
-          </p>
-        </CardContent>
-      </Card>
+      <BudgetsPageClient currency={session.user.currency ?? "PHP"} />
     </div>
   )
 }
