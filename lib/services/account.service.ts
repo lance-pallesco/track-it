@@ -1,9 +1,10 @@
 /**
- * Account service - CRUD and balance computation for user accounts.
+ * Account service - CRUD, archive, and balance computation for user accounts.
+ * Archived accounts cannot receive new transactions but remain visible for history.
  */
 
 import { prisma } from "@/lib/prisma"
-import { AccountType } from "@prisma/client"
+import type { AccountType } from "@prisma/client"
 
 export interface CreateAccountInput {
   userId: string
@@ -27,22 +28,83 @@ export async function createAccount(input: CreateAccountInput) {
   })
 }
 
-export async function getAccountsByUserId(userId: string) {
+export interface UpdateAccountInput {
+  name?: string
+  type?: AccountType
+  initialAmount?: number
+  currency?: string
+  color?: string
+}
+
+export async function updateAccount(
+  accountId: string,
+  userId: string,
+  input: UpdateAccountInput
+) {
+  await assertAccountOwnership(accountId, userId)
+  return prisma.account.update({
+    where: { id: accountId },
+    data: {
+      ...(input.name != null && { name: input.name }),
+      ...(input.type != null && { type: input.type }),
+      ...(input.initialAmount != null && { initialAmount: input.initialAmount }),
+      ...(input.currency != null && { currency: input.currency }),
+      ...(input.color !== undefined && { color: input.color }),
+    },
+  })
+}
+
+/** Soft-delete: set status to ARCHIVED. Archived accounts cannot receive new transactions. */
+export async function archiveAccount(accountId: string, userId: string) {
+  await assertAccountOwnership(accountId, userId)
+  return prisma.account.update({
+    where: { id: accountId },
+    data: { status: "ARCHIVED" },
+  })
+}
+
+export async function getAccountById(accountId: string) {
+  return prisma.account.findUnique({
+    where: { id: accountId },
+    include: {
+      transactionsFrom: { orderBy: { date: "desc" }, take: 20, include: { category: true, toAccount: true } },
+      transactionsTo: { orderBy: { date: "desc" }, take: 20, include: { category: true, account: true } },
+    },
+  })
+}
+
+/** Throws if account does not exist or does not belong to user. */
+export async function assertAccountOwnership(accountId: string, userId: string) {
+  const account = await prisma.account.findFirst({
+    where: { id: accountId, userId },
+  })
+  if (!account) {
+    throw new Error("Account not found")
+  }
+  return account
+}
+
+/** Returns true if account is ACTIVE and can receive new transactions. */
+export async function isAccountActive(accountId: string): Promise<boolean> {
+  const account = await prisma.account.findUnique({ where: { id: accountId } })
+  if (!account) return false
+  if ("status" in account && account.status) return account.status === "ACTIVE"
+  return true
+}
+
+export async function getAccountsByUserId(userId: string, _includeArchived = true) {
   return prisma.account.findMany({
     where: { userId },
     orderBy: { name: "asc" },
     include: {
-      transactionsFrom: {
-        orderBy: { date: "desc" },
-        take: 5,
-      },
+      transactionsFrom: { orderBy: { date: "desc" }, take: 5 },
     },
   })
 }
 
 /**
- * Computes current balance for an account from initialAmount + sum of transactions.
- * INCOME: +amount, EXPENSE: -amount, TRANSFER out: -amount, TRANSFER in: +amount (via toAccount)
+ * Computes current balance from initialAmount + sum of transactions.
+ * INCOME: +amount, EXPENSE: -amount, TRANSFER out: -amount, TRANSFER in: +amount (via toAccount).
  */
 export async function getAccountBalance(
   accountId: string
@@ -60,15 +122,11 @@ export async function getAccountBalance(
   }
 
   const initial = Number(account.initialAmount)
-
-  // Inflows: INCOME to this account, TRANSFER into this account (toAccountId = A)
   const inflows =
     account.transactionsFrom
       .filter((t) => t.type === "INCOME")
       .reduce((sum, t) => sum + Number(t.amount), 0) +
     account.transactionsTo.reduce((sum, t) => sum + Number(t.amount), 0)
-
-  // Outflows: EXPENSE from this account, TRANSFER out (accountId = A, toAccountId set)
   const outflows = account.transactionsFrom
     .filter(
       (t) =>
@@ -76,14 +134,13 @@ export async function getAccountBalance(
         (t.type === "TRANSFER" && t.toAccountId)
     )
     .reduce((sum, t) => sum + Number(t.amount), 0)
-
   const balance = initial + inflows - outflows
 
   return { balance, currency: account.currency }
 }
 
 /**
- * Batch compute balances for all user accounts.
+ * Batch compute balances for all user accounts (all statuses for reporting).
  */
 export async function getAccountsWithBalances(userId: string) {
   const accounts = await prisma.account.findMany({
@@ -106,15 +163,8 @@ export async function getAccountsWithBalances(userId: string) {
   const withBalances = await Promise.all(
     accounts.map(async (acc) => {
       const { balance } = await getAccountBalance(acc.id)
-      // Merge and sort recent transactions (from both directions)
-      const fromTx = acc.transactionsFrom.map((t) => ({
-        ...t,
-        isInflow: t.type === "INCOME", // EXPENSE and TRANSFER-out are outflows
-      }))
-      const toTx = acc.transactionsTo.map((t) => ({
-        ...t,
-        isInflow: true, // We're the destination
-      }))
+      const fromTx = acc.transactionsFrom.map((t) => ({ ...t, isInflow: t.type === "INCOME" }))
+      const toTx = acc.transactionsTo.map((t) => ({ ...t, isInflow: true }))
       const allTx = [...fromTx, ...toTx]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10)

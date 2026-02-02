@@ -1,12 +1,11 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { getAuthSession } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { GoalsPageClient } from "./goals-client"
 
-export default function GoalsPage() {
+export default async function GoalsPage() {
+  const session = await getAuthSession()
+  if (!session) redirect("/login")
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,19 +14,7 @@ export default function GoalsPage() {
           Track your savings goals and milestones
         </p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming soon</CardTitle>
-          <CardDescription>
-            Set goals and track progress
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Goals and savings tracking will be available in a future update.
-          </p>
-        </CardContent>
-      </Card>
+      <GoalsPageClient currency={session.user.currency ?? "PHP"} />
     </div>
   )
 }
