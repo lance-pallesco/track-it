@@ -1,7 +1,3 @@
-/**
- * Login API - validates credentials, creates session, sets httpOnly cookie.
- */
-
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { validateLogin } from "@/lib/validations/auth";

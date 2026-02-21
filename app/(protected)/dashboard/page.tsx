@@ -94,7 +94,7 @@ export default async function DashboardPage() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-muted-foreground mb-2">No accounts yet</p>
               <a
-                href="/dashboard/accounts"
+                href="/accounts"
                 className="text-sm font-medium text-primary hover:underline"
               >
                 Add your first account →

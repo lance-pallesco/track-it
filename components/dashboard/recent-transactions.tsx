@@ -58,7 +58,7 @@ export function RecentTransactions({
         <CardContent>
           <p className="text-sm text-muted-foreground">No transactions yet</p>
           <Link
-            href="/dashboard/transactions"
+            href="/transactions"
             className="mt-2 text-sm text-primary hover:underline"
           >
             Add your first transaction →
@@ -76,7 +76,7 @@ export function RecentTransactions({
           <CardDescription>Income, expenses, and transfers</CardDescription>
         </div>
         <Link
-          href="/dashboard/transactions"
+          href="/transactions"
           className="text-sm font-medium text-primary hover:underline"
         >
           View all

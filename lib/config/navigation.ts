@@ -23,36 +23,36 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   },
   {
     title: "Accounts",
-    url: "/dashboard/accounts",
+    url: "/accounts",
     icon: Wallet,
   },
   {
     title: "Transactions",
-    url: "/dashboard/transactions",
+    url: "/transactions",
     icon: ArrowLeftRight,
   },
   {
     title: "Budgets",
-    url: "/dashboard/budgets",
+    url: "/budgets",
     icon: PiggyBank,
   },
   {
     title: "Analytics",
-    url: "/dashboard/analytics",
+    url: "/analytics",
     icon: BarChart3,
   },
   {
     title: "Goals & Savings",
-    url: "/dashboard/goals",
+    url: "/goals",
     icon: Target,
   },
   {
     title: "Settings",
-    url: "/dashboard/settings",
+    url: "/settings",
     icon: Settings,
     items: [
-      { title: "Profile", url: "/dashboard/settings/profile" },
-      { title: "General", url: "/dashboard/settings" },
+      { title: "Profile", url: "/settings/profile" },
+      { title: "General", url: "/settings" },
     ],
   },
 ]
